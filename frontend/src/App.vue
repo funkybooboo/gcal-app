@@ -73,44 +73,58 @@ export default {
     }
   },
   mounted() {
+    console.log('[App] Component mounted')
     this.checkAuthStatus()
     this.handleAuthCallback()
   },
   methods: {
     async checkAuthStatus() {
+      console.log('[Auth] Checking authentication status')
       try {
         const response = await axios.get(`${API_BASE_URL}/auth/status`, {
           withCredentials: true
         })
+        console.log('[Auth] Status response:', response.data)
         this.authenticated = response.data.authenticated
+        console.log('[Auth] Authenticated:', this.authenticated)
       } catch (error) {
-        console.error('Error checking auth status:', error)
+        console.error('[Auth] Error checking auth status:', error)
+        console.error('[Auth] Error details:', error.response?.data)
       }
     },
     async login() {
+      console.log('[Auth] Initiating login')
       try {
         const response = await axios.get(`${API_BASE_URL}/auth/init`, {
           withCredentials: true
         })
+        console.log('[Auth] Auth URL received:', response.data.auth_url)
+        console.log('[Auth] Redirecting to Google OAuth...')
         window.location.href = response.data.auth_url
       } catch (error) {
-        console.error('Error initiating login:', error)
+        console.error('[Auth] Error initiating login:', error)
+        console.error('[Auth] Error details:', error.response?.data)
         alert('Failed to initiate login')
       }
     },
     async logout() {
+      console.log('[Auth] Logging out')
       try {
         await axios.post(`${API_BASE_URL}/auth/logout`, {}, {
           withCredentials: true
         })
+        console.log('[Auth] Logout successful')
         this.authenticated = false
         this.events = []
         this.calendars = []
+        console.log('[Auth] State cleared')
       } catch (error) {
-        console.error('Error logging out:', error)
+        console.error('[Auth] Error logging out:', error)
+        console.error('[Auth] Error details:', error.response?.data)
       }
     },
     async fetchEvents() {
+      console.log('[Events] Fetching events')
       this.loadingEvents = true
       this.eventsError = null
 
@@ -119,15 +133,20 @@ export default {
           params: { max_results: 20 },
           withCredentials: true
         })
+        console.log('[Events] Received events:', response.data)
+        console.log('[Events] Event count:', response.data.events?.length || 0)
         this.events = response.data.events
       } catch (error) {
-        console.error('Error fetching events:', error)
+        console.error('[Events] Error fetching events:', error)
+        console.error('[Events] Error details:', error.response?.data)
         this.eventsError = error.response?.data?.error || 'Failed to fetch events'
       } finally {
         this.loadingEvents = false
+        console.log('[Events] Loading complete')
       }
     },
     async fetchCalendars() {
+      console.log('[Calendars] Fetching calendars')
       this.loadingCalendars = true
       this.calendarsError = null
 
@@ -135,12 +154,16 @@ export default {
         const response = await axios.get(`${API_BASE_URL}/calendars`, {
           withCredentials: true
         })
+        console.log('[Calendars] Received calendars:', response.data)
+        console.log('[Calendars] Calendar count:', response.data.calendars?.length || 0)
         this.calendars = response.data.calendars
       } catch (error) {
-        console.error('Error fetching calendars:', error)
+        console.error('[Calendars] Error fetching calendars:', error)
+        console.error('[Calendars] Error details:', error.response?.data)
         this.calendarsError = error.response?.data?.error || 'Failed to fetch calendars'
       } finally {
         this.loadingCalendars = false
+        console.log('[Calendars] Loading complete')
       }
     },
     handleAuthCallback() {
@@ -148,12 +171,16 @@ export default {
       const authStatus = urlParams.get('auth')
 
       if (authStatus === 'success') {
+        console.log('[Auth] Authentication callback: SUCCESS')
         this.authenticated = true
         window.history.replaceState({}, document.title, '/')
       } else if (authStatus === 'error') {
         const message = urlParams.get('message')
+        console.error('[Auth] Authentication callback: ERROR -', message)
         alert(`Authentication failed: ${message}`)
         window.history.replaceState({}, document.title, '/')
+      } else if (authStatus) {
+        console.log('[Auth] Unknown auth status:', authStatus)
       }
     },
     formatEventTime(event) {
