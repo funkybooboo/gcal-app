@@ -19,12 +19,13 @@ COPY . .
 # Create staticfiles directory
 RUN mkdir -p staticfiles
 
-# Run migrations and collect static files
-RUN python manage.py migrate --noinput || true
-RUN python manage.py collectstatic --noinput || true
+# Copy and set up entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Expose port
 EXPOSE 8000
 
-# Run the application
+# Use entrypoint script to run migrations before starting the server
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "gcal_backend.wsgi:application"]
