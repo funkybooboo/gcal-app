@@ -38,6 +38,7 @@ docker-compose up --build
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
 - [Security Notes](#security-notes)
+- [Documentation](#documentation)
 
 ## Project Structure
 
@@ -293,6 +294,23 @@ The Vue frontend uses:
 - Generate a strong `DJANGO_SECRET_KEY` for production
 - Set `DEBUG=False` in production
 - Configure proper CORS settings for production domains
+
+## Documentation
+
+### Official Documentation
+
+- **Google Calendar API**: [Google Calendar API Docs](https://developers.google.com/calendar/api/guides/overview)
+- **Django**: [Django Documentation](https://docs.djangoproject.com/)
+- **Django REST Framework**: [DRF Documentation](https://www.django-rest-framework.org/)
+- **Vue.js 3**: [Vue.js Guide](https://vuejs.org/guide/introduction.html)
+- **Vite**: [Vite Documentation](https://vitejs.dev/guide/)
+- **Docker**: [Docker Documentation](https://docs.docker.com/)
+- **Docker Compose**: [Docker Compose Documentation](https://docs.docker.com/compose/)
+
+### API References
+
+- **Google Calendar API Reference**: [API Reference](https://developers.google.com/calendar/api/v3/reference)
+- **OAuth 2.0**: [Using OAuth 2.0 to Access Google APIs](https://developers.google.com/identity/protocols/oauth2)
 
 ## License
 
