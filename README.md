@@ -297,6 +297,11 @@ The Vue frontend uses:
 
 ## Documentation
 
+### Project Documentation
+
+For detailed information about the authentication workflow and how the Google Calendar API integration works, see:
+- **[Authentication and Calendar Workflow](docs/authentication-and-calendar-workflow.md)** - Comprehensive guide covering OAuth2 flow, token storage, API endpoints, and security considerations
+
 ### Official Documentation
 
 - **Google Calendar API**: [Google Calendar API Docs](https://developers.google.com/calendar/api/guides/overview)
