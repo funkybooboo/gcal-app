@@ -2,6 +2,43 @@
 
 A full-stack application using Vue.js, Vite, and Django to interact with the Google Calendar API.
 
+## Quick Start
+
+**Prerequisites:** Docker, Docker Compose, and Google Calendar API credentials
+
+```bash
+# 1. Clone and navigate to the project
+cd gcal-app
+
+# 2. Copy environment files
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+
+# 3. Edit backend/.env with your Google OAuth credentials
+# (See "Google Calendar API Setup" section below for detailed steps)
+
+# 4. Start the application
+docker-compose up --build
+
+# 5. Open http://localhost:5173 in your browser
+```
+
+**First time setup?** Follow the detailed [Google Calendar API Setup](#google-calendar-api-setup) section below to get your credentials.
+
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Project Structure](#project-structure)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Google Calendar API Setup](#google-calendar-api-setup)
+- [Running the Application](#running-the-application)
+- [Usage](#usage)
+- [API Endpoints](#api-endpoints)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+- [Security Notes](#security-notes)
+
 ## Project Structure
 
 ```
@@ -32,9 +69,17 @@ A full-stack application using Vue.js, Vite, and Django to interact with the Goo
 
 ## Prerequisites
 
-- Docker and Docker Compose
-- Google Cloud Console account
-- Google Calendar API credentials
+### Required
+- **Docker** (20.10+) and **Docker Compose** (2.0+) - For containerized setup
+  - [Install Docker](https://docs.docker.com/get-docker/)
+  - [Install Docker Compose](https://docs.docker.com/compose/install/)
+- **Google Cloud Console account** - Free tier available
+- **Google Calendar API credentials** - See setup instructions below
+
+### For Local Development (Without Docker)
+- **Python 3.9+** and pip
+- **Node.js 18+** and npm
+- All the above Google requirements
 
 ## Google Calendar API Setup
 
@@ -112,6 +157,8 @@ A full-stack application using Vue.js, Vite, and Django to interact with the Goo
    ```
 
 ## Running the Application
+
+> **Note:** Make sure you've completed the [Google Calendar API Setup](#google-calendar-api-setup) and configured your `.env` files before running the application.
 
 ### Using Docker Compose (Recommended)
 
