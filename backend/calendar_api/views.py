@@ -141,13 +141,15 @@ def list_events(request):
         logger.debug("Calendar service built successfully")
 
         # Get query parameters
-        max_results = int(request.GET.get('max_results', 10))
+        max_results = int(request.GET.get('max_results', 250))
         time_min = request.GET.get('time_min')
-        logger.debug(f"Query parameters - max_results: {max_results}, time_min: {time_min}")
+        time_max = request.GET.get('time_max')
+        calendar_id = request.GET.get('calendar_id', 'primary')
+        logger.debug(f"Query parameters - max_results: {max_results}, time_min: {time_min}, time_max: {time_max}")
 
         # Call the Calendar API
         events_params = {
-            'calendarId': 'primary',
+            'calendarId': calendar_id,
             'maxResults': max_results,
             'singleEvents': True,
             'orderBy': 'startTime'
@@ -159,9 +161,16 @@ def list_events(request):
             from datetime import datetime
             events_params['timeMin'] = datetime.utcnow().isoformat() + 'Z'
 
+        if time_max:
+            events_params['timeMax'] = time_max
+
         logger.debug(f"Fetching events with parameters: {events_params}")
         events_result = service.events().list(**events_params).execute()
         events = events_result.get('items', [])
+
+        # Add calendarId to each event for color coding
+        for event in events:
+            event['calendarId'] = calendar_id
 
         logger.info(f"Successfully retrieved {len(events)} events")
         return Response({'events': events})
