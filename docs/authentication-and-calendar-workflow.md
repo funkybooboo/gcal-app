@@ -1,12 +1,68 @@
 # Google Calendar App - Authentication and Calendar Workflow Documentation
 
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Features](#features)
+3. [Quick Workflow Summary](#quick-workflow-summary)
+4. [Technology Stack](#technology-stack)
+5. [Google OAuth2 Authentication Workflow](#google-oauth2-authentication-workflow)
+   - [Configuration](#configuration)
+   - [OAuth2 Flow Steps](#oauth2-flow-steps)
+6. [Token Storage](#token-storage)
+7. [Google Calendar API Workflow](#google-calendar-api-workflow)
+   - [Authentication Check](#authentication-check)
+   - [Fetching Calendar Events](#fetching-calendar-events)
+   - [Fetching Calendar List](#fetching-calendar-list)
+8. [Calendar View Workflow](#calendar-view-workflow)
+   - [CalendarView Component](#calendarview-component)
+   - [Month Navigation Workflow](#month-navigation-workflow)
+   - [Event Display and Formatting](#event-display-and-formatting)
+   - [Calendar Grid Generation](#calendar-grid-generation)
+   - [User Interaction Features](#user-interaction-features)
+9. [API Endpoints Summary](#api-endpoints-summary)
+10. [Security Considerations](#security-considerations)
+11. [Data Flow Diagrams](#data-flow-diagram)
+12. [Environment Variables](#environment-variables)
+13. [Common Issues and Troubleshooting](#common-issues-and-troubleshooting)
+14. [File Reference Guide](#file-reference-guide)
+
+---
+
 ## Overview
 
 This application integrates Google Calendar using Google OAuth2 for authentication. There is **no Auth0 integration** in this application - authentication is handled entirely through Google's OAuth2 flow.
 
+The application provides a clean, interactive calendar view that displays events from your Google Calendar in a familiar month-grid format, similar to Google Calendar's web interface.
+
+## Features
+
+- **Google OAuth2 Authentication**: Secure login with Google account
+- **Interactive Calendar View**: Month-grid calendar displaying all your events
+- **Month Navigation**: Browse through different months with previous/next controls
+- **Event Display**:
+  - Events shown on their respective days
+  - Time formatting in 12-hour AM/PM format
+  - All-day events clearly marked
+  - Color-coded events by calendar
+  - Event details on hover
+- **Real-time Updates**: Events fetched automatically when navigating months
+- **Responsive Design**: Works on desktop and mobile devices
+- **Today Highlighting**: Current date highlighted for easy reference
+
+## Quick Workflow Summary
+
+1. **User logs in** → Redirected to Google OAuth consent screen
+2. **User grants permissions** → Google redirects back with authorization code
+3. **Backend exchanges code for tokens** → Tokens stored in Django session
+4. **Frontend loads calendar** → Automatically fetches events for current month
+5. **User navigates months** → Events fetched for each month on demand
+6. **Events displayed in grid** → Color-coded, formatted, and organized by day
+
 ## Technology Stack
 
-- **Frontend**: Vue.js (running on port 5173)
+- **Frontend**: Vue.js 3 with Composition API (running on port 5173)
+  - Components: App.vue (main app), CalendarView.vue (calendar UI)
 - **Backend**: Django (running on port 8000)
 - **Authentication**: Google OAuth2
 - **API**: Google Calendar API v3
@@ -222,50 +278,88 @@ else:
 
 ### Fetching Calendar Events
 
-**File**: `frontend/src/App.vue:126-147`
+**File**: `frontend/src/App.vue:112-148`
 
-**Endpoint**: `GET http://localhost:8000/api/events?max_results=20`
+**Endpoint**: `GET http://localhost:8000/api/events`
 
-When the user clicks "Load Events":
+The application automatically fetches events for the current month when authenticated, and refetches when the user navigates to different months:
 
 ```javascript
-async fetchEvents() {
+async fetchEventsForMonth(month, year) {
+  this.loadingEvents = true
+  this.eventsError = null
+
+  // Get first and last day of the month
+  const firstDay = new Date(year, month, 1)
+  const lastDay = new Date(year, month + 1, 0, 23, 59, 59)
+
+  // Format as ISO strings
+  const timeMin = firstDay.toISOString()
+  const timeMax = lastDay.toISOString()
+
   const response = await axios.get(`${API_BASE_URL}/events`, {
-    params: { max_results: 20 },
+    params: {
+      time_min: timeMin,
+      time_max: timeMax,
+      max_results: 250
+    },
     withCredentials: true
   })
+
   this.events = response.data.events
 }
 ```
 
-**Backend Handler** (`backend/calendar_api/views.py:125-174`):
+**Backend Handler** (`backend/calendar_api/views.py:125-183`):
 
 1. **Authentication Check**: Verifies credentials exist in session
 2. **Build Google API Client**: Creates Calendar API service
-3. **Fetch Events**: Calls Google Calendar API
-4. **Return Events**: Sends events back to frontend
+3. **Fetch Events**: Calls Google Calendar API with date range
+4. **Add Calendar Metadata**: Adds calendarId to each event for color coding
+5. **Return Events**: Sends events back to frontend
 
 ```python
 credentials = Credentials(**credentials_data)
 service = build('calendar', 'v3', credentials=credentials)
 
-events_result = service.events().list(
-    calendarId='primary',
-    maxResults=max_results,
-    singleEvents=True,
-    orderBy='startTime',
-    timeMin=datetime.utcnow().isoformat() + 'Z'
-).execute()
+# Get query parameters
+max_results = int(request.GET.get('max_results', 250))
+time_min = request.GET.get('time_min')
+time_max = request.GET.get('time_max')
+calendar_id = request.GET.get('calendar_id', 'primary')
+
+events_params = {
+    'calendarId': calendar_id,
+    'maxResults': max_results,
+    'singleEvents': True,
+    'orderBy': 'startTime'
+}
+
+if time_min:
+    events_params['timeMin'] = time_min
+else:
+    events_params['timeMin'] = datetime.utcnow().isoformat() + 'Z'
+
+if time_max:
+    events_params['timeMax'] = time_max
+
+events_result = service.events().list(**events_params).execute()
+events = events_result.get('items', [])
+
+# Add calendarId to each event for color coding
+for event in events:
+    event['calendarId'] = calendar_id
 ```
 
 **Google API Endpoint Called**: `https://www.googleapis.com/calendar/v3/calendars/primary/events`
 
 **Query Parameters**:
-- `calendarId`: 'primary' (user's main calendar)
-- `maxResults`: Number of events to return (default: 10)
+- `calendar_id`: Calendar ID to fetch events from (default: 'primary')
+- `max_results`: Maximum number of events to return (default: 250)
+- `time_min`: Start of date range (ISO 8601 format)
+- `time_max`: End of date range (ISO 8601 format)
 - `singleEvents`: True (expand recurring events)
 - `orderBy`: 'startTime' (sort by start time)
-- `timeMin`: Current UTC time (only future events)
 
 ---
 
@@ -297,6 +391,150 @@ calendars = calendars_result.get('items', [])
 ```
 
 **Google API Endpoint Called**: `https://www.googleapis.com/calendar/v3/users/me/calendarList`
+
+---
+
+## Calendar View Workflow
+
+The application features a fully integrated calendar UI component that displays events in a month grid view.
+
+### CalendarView Component
+
+**File**: `frontend/src/components/CalendarView.vue`
+
+The CalendarView component:
+- Displays a month grid calendar (7 columns x 6 rows)
+- Shows events from the current and adjacent months
+- Highlights today's date
+- Supports month-to-month navigation
+- Color-codes events based on calendar ID
+- Formats event times (12-hour format with AM/PM)
+- Handles all-day events
+
+### Month Navigation Workflow
+
+**Files**:
+- `frontend/src/components/CalendarView.vue:124-141` (navigation methods)
+- `frontend/src/App.vue:149-154` (event handler)
+
+When the user clicks the previous/next month buttons:
+
+1. **CalendarView emits month-changed event**:
+```javascript
+// In CalendarView.vue
+nextMonth() {
+  if (this.currentMonth === 11) {
+    this.currentMonth = 0
+    this.currentYear++
+  } else {
+    this.currentMonth++
+  }
+  this.$emit('month-changed', { month: this.currentMonth, year: this.currentYear })
+}
+```
+
+2. **App.vue handles the event**:
+```javascript
+// In App.vue
+onMonthChanged({ month, year }) {
+  this.currentMonth = month
+  this.currentYear = year
+  this.fetchEventsForMonth(month, year)
+}
+```
+
+3. **Events are fetched for the new month** using the date range for that month
+4. **CalendarView re-renders** with the new events
+
+### Event Display and Formatting
+
+**File**: `frontend/src/components/CalendarView.vue:142-186`
+
+#### Event Filtering by Day
+
+Events are filtered and displayed for each day in the calendar:
+
+```javascript
+getEventsForDay(dayDate) {
+  return this.events.filter(event => {
+    const eventDate = new Date(event.start.dateTime || event.start.date)
+    eventDate.setHours(0, 0, 0, 0)
+    const compareDate = new Date(dayDate)
+    compareDate.setHours(0, 0, 0, 0)
+
+    return eventDate.getTime() === compareDate.getTime()
+  })
+}
+```
+
+#### Time Formatting
+
+Events display in 12-hour format with AM/PM:
+
+```javascript
+formatEventTime(event) {
+  if (event.start.date) {
+    return 'All day'
+  }
+
+  const startTime = new Date(event.start.dateTime)
+  const hours = startTime.getHours()
+  const minutes = startTime.getMinutes()
+  const ampm = hours >= 12 ? 'PM' : 'AM'
+  const displayHours = hours % 12 || 12
+  const displayMinutes = minutes.toString().padStart(2, '0')
+
+  return `${displayHours}:${displayMinutes} ${ampm}`
+}
+```
+
+**Examples**:
+- `2:30 PM` for 14:30
+- `9:00 AM` for 09:00
+- `All day` for full-day events
+
+#### Event Color Coding
+
+Events are color-coded based on their calendar ID using a consistent hashing algorithm:
+
+```javascript
+getEventColor(event) {
+  if (event.calendarId) {
+    const hash = event.calendarId.split('').reduce((acc, char) => {
+      return char.charCodeAt(0) + ((acc << 5) - acc)
+    }, 0)
+    const colors = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#ff6d00', '#46bdc6', '#7baaf7', '#f07b72']
+    return colors[Math.abs(hash) % colors.length]
+  }
+  return '#4285f4'
+}
+```
+
+This ensures:
+- Events from the same calendar always have the same color
+- Different calendars get visually distinct colors
+- Colors are Google Calendar-inspired palette
+
+### Calendar Grid Generation
+
+**File**: `frontend/src/components/CalendarView.vue:65-121`
+
+The calendar grid is computed to show:
+1. **Previous month overflow days** (to fill the first week)
+2. **Current month days** (1st through last day of month)
+3. **Next month overflow days** (to complete 6 rows of 7 days)
+
+For each day, the component:
+- Determines if it's today (highlighted in blue)
+- Determines if it's in the current month (grayed out if not)
+- Fetches and displays all events for that day
+
+### User Interaction Features
+
+1. **Month Navigation**: Previous/next buttons to navigate months
+2. **Event Hover**: Shows full event details on hover (title and time)
+3. **Today Highlight**: Current date highlighted with blue circle
+4. **Responsive Design**: Adapts to mobile screens (768px breakpoint)
 
 ---
 
@@ -417,6 +655,49 @@ All endpoints are defined in `backend/calendar_api/urls.py:4-11`
        │                                  │                                  │
 ```
 
+### Calendar View Interaction Flow
+
+```
+┌─────────────┐                    ┌─────────────┐                    ┌─────────────┐
+│             │                    │             │                    │             │
+│  Calendar   │                    │   App.vue   │                    │   Django    │
+│  View       │                    │  Component  │                    │   Backend   │
+│             │                    │             │                    │             │
+└──────┬──────┘                    └──────┬──────┘                    └──────┬──────┘
+       │                                  │                                  │
+       │                                  │ [User authenticates]             │
+       │                                  │                                  │
+       │                                  │ 1. Auto-fetch current month      │
+       │                                  │    fetchEventsForMonth()         │
+       │                                  │─────────────────────────────────>│
+       │                                  │                                  │
+       │                                  │ 2. Events for month              │
+       │                                  │<─────────────────────────────────│
+       │                                  │                                  │
+       │ 3. Render calendar               │                                  │
+       │  with events prop                │                                  │
+       │<─────────────────────────────────│                                  │
+       │                                  │                                  │
+       │ 4. User clicks next/prev month   │                                  │
+       │  emit('month-changed')           │                                  │
+       │─────────────────────────────────>│                                  │
+       │                                  │                                  │
+       │                                  │ 5. Fetch new month events        │
+       │                                  │─────────────────────────────────>│
+       │                                  │                                  │
+       │                                  │ 6. Events for new month          │
+       │                                  │<─────────────────────────────────│
+       │                                  │                                  │
+       │ 7. Re-render with new events     │                                  │
+       │<─────────────────────────────────│                                  │
+       │                                  │                                  │
+       │ 8. Display events in grid        │                                  │
+       │    - Filter by day               │                                  │
+       │    - Format times                │                                  │
+       │    - Color code by calendar      │                                  │
+       │                                  │                                  │
+```
+
 ---
 
 ## Environment Variables
@@ -468,6 +749,20 @@ To obtain Google OAuth2 credentials:
 2. **Check token expiry**: Access tokens expire; backend should handle refresh automatically
 3. **Check scopes**: Ensure correct Calendar API scopes are requested
 
+### Events Not Showing in Calendar
+
+1. **Check date range**: Events are fetched for specific month ranges; verify `time_min` and `time_max` parameters
+2. **Check event filtering**: Ensure events have valid `start.dateTime` or `start.date` fields
+3. **Check browser console**: Look for JavaScript errors in event filtering or display logic
+4. **Check max_results**: Default is 250; if you have more events in a month, increase this value
+
+### Calendar Not Updating When Changing Months
+
+1. **Check month-changed event**: Verify CalendarView is emitting the event
+2. **Check App.vue handler**: Ensure `onMonthChanged` is being called
+3. **Check network requests**: Verify API call is made with correct date range
+4. **Check browser console**: Look for errors in the fetchEventsForMonth function
+
 ---
 
 ## File Reference Guide
@@ -483,10 +778,21 @@ To obtain Google OAuth2 credentials:
 
 ### Frontend Files
 
-- `frontend/src/App.vue`: Main Vue component with all authentication and API logic
-- Lines 95-108: Login flow
-- Lines 81-94: Auth status check
-- Lines 126-147: Fetch events
-- Lines 148-168: Fetch calendars
-- Lines 110-125: Logout
-- Lines 169-185: Handle OAuth callback
+- `frontend/src/App.vue`: Main Vue component with authentication and API orchestration
+  - Lines 81-95: Login flow
+  - Lines 67-80: Auth status check
+  - Lines 96-111: Logout
+  - Lines 112-148: Fetch events for month (with date range)
+  - Lines 149-154: Handle month navigation
+  - Lines 155-171: Handle OAuth callback
+  - Lines 59-65: Auto-fetch events when authenticated
+
+- `frontend/src/components/CalendarView.vue`: Calendar UI component
+  - Lines 65-121: Calendar grid generation (computed property)
+  - Lines 124-132: Previous month navigation
+  - Lines 133-141: Next month navigation
+  - Lines 142-161: Filter events by day
+  - Lines 162-175: Format event times (12-hour AM/PM)
+  - Lines 176-186: Generate event colors from calendar ID
+
+- `frontend/src/main.js`: Vue app entry point
